@@ -1,22 +1,36 @@
-import time
-import requests
 import argparse
-import numpy as np
-from pandas import DataFrame, to_datetime, concat, MultiIndex, date_range
 import datetime as dt
+import time
+from typing import Optional, Tuple
+
 import matplotlib.pyplot as plt
+import numpy as np
+import requests
+from pandas import DataFrame, to_datetime, concat, MultiIndex, date_range
 
 API_BASE_URL = "https://wikimedia.org/api/rest_v1/metrics"
 TOP_ENDPOINT = "pageviews/top"
 TOP_ARGS = "{project}/{access}/{year}/{month}/{day}"
 
 
-def get_top_wiki_articles(project, year, month, day, access="all-access"):
+def timed(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        duration = end_time - start_time
+        print(f"{func.__name__} took {duration:.2f} seconds")
+        return result
+
+    return wrapper
+
+
+def get_top_wiki_articles(project: str, year: str, month: str, day: str, access: str = "all-access") -> Optional[dict]:
     args = TOP_ARGS.format(project=project, access=access, year=year, month=month, day=day)
     return __api__(TOP_ENDPOINT, args)
 
 
-def __api__(end_point, args, api_url=API_BASE_URL):
+def __api__(end_point: str, args: str, api_url: str = API_BASE_URL) -> Optional[dict]:
     url = "/".join([api_url, end_point, args])
     response = requests.get(url, headers={"User-Agent": "wiki parser"})
     if response.status_code == 200:
@@ -25,7 +39,8 @@ def __api__(end_point, args, api_url=API_BASE_URL):
         response.raise_for_status()
 
 
-def process_dates(start, end):
+@timed
+def process_dates(start: str, end: str) -> DataFrame:
     start_date = dt.datetime.strptime(start, "%Y%m%d")
     end_date = dt.datetime.strptime(end, "%Y%m%d")
     delta = dt.timedelta(days=1)
@@ -44,7 +59,8 @@ def process_dates(start, end):
     return df
 
 
-def transform_data(df):
+@timed
+def transform_data(df: DataFrame) -> DataFrame:
     df["date"] = to_datetime(df["date"])
     idx = MultiIndex.from_product(
         [df["article"].unique(), date_range(start=df["date"].min(), end=df["date"].max())],
@@ -61,7 +77,8 @@ def transform_data(df):
     return df[df["article"].isin(top_articles.index)]
 
 
-def calculate_stats(df):
+@timed
+def calculate_stats(df: DataFrame) -> Tuple[int, int, int]:
     views_sum = {article: 0 for article in df["article"].unique()}
     count = {article: 0 for article in df["article"].unique()}
 
@@ -79,7 +96,8 @@ def calculate_stats(df):
     return mean_views, max_views, unique_articles
 
 
-def plot_data(df, mean_views, max_views, unique_articles):
+@timed
+def plot_data(df: DataFrame, mean_views: int, max_views: int, unique_articles: int) -> None:
     title = f"Top articles wiki views (Mean: {mean_views:.2f}, Max: {max_views}, Articles: {unique_articles})"
     plt.figure(figsize=(12, 8))
     for article in df["article"].unique():
@@ -98,10 +116,14 @@ def main():
     parser.add_argument("end", type=str, help="The end date in YYYY-MM-DD format")
     args = parser.parse_args()
 
+    total_start_time = time.time()
     df = process_dates(args.start, args.end)
     transformed_df = transform_data(df)
     mean_views, max_views, unique_articles = calculate_stats(transformed_df)
     plot_data(transformed_df, mean_views, max_views, unique_articles)
+    total_end_time = time.time()
+
+    print(f"Total execution time: {total_end_time - total_start_time:.2f} seconds")
 
 
 if __name__ == "__main__":
