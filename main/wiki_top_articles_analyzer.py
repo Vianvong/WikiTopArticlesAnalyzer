@@ -44,19 +44,20 @@ def process_dates(start: str, end: str) -> DataFrame:
     start_date = dt.datetime.strptime(start, "%Y%m%d")
     end_date = dt.datetime.strptime(end, "%Y%m%d")
     delta = dt.timedelta(days=1)
-    df = DataFrame()
+    data_frames = []
 
     while start_date <= end_date:
         year = str(start_date.year)
-        month = str(start_date.month)
-        day = str(start_date.day)
+        month = str(start_date.month).zfill(2)
+        day = str(start_date.day).zfill(2)
         start_date += delta
         data = get_top_wiki_articles("en.wikipedia", year, month, day)
-        data = DataFrame(data["items"][0]["articles"])
-        data["date"] = f"{year}{month}{day}"
-        df = concat([df, data])
+        if data:
+            daily_df = DataFrame(data["items"][0]["articles"])
+            daily_df["date"] = f"{year}{month}{day}"
+            data_frames.append(daily_df)
 
-    return df
+    return concat(data_frames, ignore_index=True)
 
 
 @timed
@@ -78,7 +79,7 @@ def transform_data(df: DataFrame) -> DataFrame:
 
 
 @timed
-def calculate_stats(df: DataFrame) -> Tuple[int, int, int]:
+def calculate_stats(df: DataFrame) -> Tuple[int, int]:
     views_sum = {article: 0 for article in df["article"].unique()}
     count = {article: 0 for article in df["article"].unique()}
 
@@ -91,9 +92,8 @@ def calculate_stats(df: DataFrame) -> Tuple[int, int, int]:
     mean_views = {article: views_sum[article] / count[article] for article in views_sum}
     mean_views = int(np.nanmean(list(mean_views.values())))
     max_views = df["views"].max()
-    unique_articles = df["article"].nunique()
 
-    return mean_views, max_views, unique_articles
+    return mean_views, max_views
 
 
 @timed
@@ -118,8 +118,9 @@ def main():
 
     total_start_time = time.time()
     df = process_dates(args.start, args.end)
+    unique_articles = df["article"].nunique()
     transformed_df = transform_data(df)
-    mean_views, max_views, unique_articles = calculate_stats(transformed_df)
+    mean_views, max_views = calculate_stats(transformed_df)
     plot_data(transformed_df, mean_views, max_views, unique_articles)
     total_end_time = time.time()
 
