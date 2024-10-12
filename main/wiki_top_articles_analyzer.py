@@ -13,6 +13,7 @@ from pandas import DataFrame, to_datetime, concat, MultiIndex, date_range
 API_BASE_URL = "https://wikimedia.org/api/rest_v1/metrics"
 TOP_ENDPOINT = "pageviews/top"
 TOP_ARGS = "{project}/{access}/{year}/{month}/{day}"
+HEADERS = {"User-Agent": "wiki parser"}
 
 
 def timed(func):
@@ -34,7 +35,7 @@ def get_top_wiki_articles(project: str, year: str, month: str, day: str, access:
 
 def get_top_wiki_articles_async(project: str, year: str, month: str, day: str) -> Optional[DataFrame]:
     data = get_top_wiki_articles(project, year, month, day)
-    if data:
+    if data and "items" in data and data["items"]:
         daily_df = DataFrame(data["items"][0]["articles"])
         daily_df["date"] = f"{year}-{month}-{day}"
         return daily_df
@@ -44,7 +45,7 @@ def get_top_wiki_articles_async(project: str, year: str, month: str, day: str) -
 def __api__(end_point: str, args: str, api_url: str = API_BASE_URL) -> Optional[dict]:
     url = "/".join([api_url, end_point, args])
     try:
-        response = requests.get(url, headers={"User-Agent": "wiki parser"})
+        response = requests.get(url, headers=HEADERS)
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
@@ -81,17 +82,17 @@ def calculate_stats(df: DataFrame) -> Tuple[int, int]:
     views_sum = {article: 0 for article in df["article"].unique()}
     count = {article: 0 for article in df["article"].unique()}
 
-    for i in range(len(df)):
-        article = df.iloc[i]["article"]
-        views = df.iloc[i]["views"]
+    for _, row in df.iterrows():
+        article = row["article"]
+        views = row["views"]
         views_sum[article] += views
         count[article] += 1
 
     mean_views = {article: views_sum[article] / count[article] for article in views_sum}
-    mean_views = int(np.nanmean(list(mean_views.values())))
+    overall_mean_views = int(np.nanmean(list(mean_views.values())))
     max_views = df["views"].max()
 
-    return mean_views, max_views
+    return overall_mean_views, max_views
 
 
 @timed

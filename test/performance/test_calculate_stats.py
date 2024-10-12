@@ -11,6 +11,11 @@ def generate_large_dataframe_for_stats(num_articles: int, num_rows: int) -> pd.D
         "views": np.random.randint(100, 10000, size=num_rows)
     }
     df = pd.DataFrame(data)
+
+    num_nans = int(num_rows * 0.1)
+    nan_indices = np.random.choice(df.index, size=num_nans, replace=False)
+    df.loc[nan_indices, 'views'] = np.nan
+
     return df
 
 

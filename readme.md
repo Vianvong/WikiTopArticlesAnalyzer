@@ -2,9 +2,9 @@ A provided script retrieves views statistics for the top 1000 English Wikipedia 
 
 Sample run that will create a plot: python main/wiki_top_articles_analyzer.py 20231210 20231231
 
-Running the unittest: python -m unittest test/test_wiki_top_articles_analyzer.py
+Run the unit tests: python -m unittest test/test_wiki_top_articles_analyzer.py
 
-Running performance test: python -m test.performance.test_transform_data
+Run the performance test: python -m test.performance.test_transform_data
 
 ---
 Your task is to improve this script. The criteria are simplicity and reliability.
