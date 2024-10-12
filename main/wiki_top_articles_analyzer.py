@@ -66,18 +66,12 @@ def process_dates(start: str, end: str) -> DataFrame:
 def transform_data(df: DataFrame) -> DataFrame:
     df["date"] = to_datetime(df["date"])
     idx = MultiIndex.from_product(
-        [df["article"].unique(), date_range(start=df["date"].min(), end=df["date"].max())],
+        [df["article"].unique(), date_range(df["date"].min(), df["date"].max())],
         names=["article", "date"]
     )
-
-    df.set_index(["article", "date"], inplace=True)
-    df = df.reindex(idx)
-    df = df.reset_index(drop=False)
-    df["views"] = df.groupby("article")["views"].transform(lambda x: x.ffill())
-
-    last_values = df.groupby("article")["views"].last()
-    top_articles = last_values.nlargest(20)
-    return df[df["article"].isin(top_articles.index)]
+    df = df.set_index(["article", "date"]).reindex(idx).groupby(level="article").ffill().reset_index()
+    top_articles = df.groupby("article")["views"].last().nlargest(20).index
+    return df[df["article"].isin(top_articles)]
 
 
 @timed
