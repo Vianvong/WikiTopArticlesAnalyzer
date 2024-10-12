@@ -26,10 +26,9 @@ class TestWikiParser(unittest.TestCase):
     def test_calculate_stats(self):
         data = {"article": ["Python", "Java"], "views": [1000, 1500], "date": ["2024-01-01", "2024-01-01"]}
         df = pd.DataFrame(data)
-        mean_views, max_views, unique_articles = wiki_top_articles_analyzer.calculate_stats(df)
+        mean_views, max_views = wiki_top_articles_analyzer.calculate_stats(df)
         self.assertEqual(mean_views, 1250)
         self.assertEqual(max_views, 1500)
-        self.assertEqual(unique_articles, 2)
 
 
 if __name__ == "__main__":

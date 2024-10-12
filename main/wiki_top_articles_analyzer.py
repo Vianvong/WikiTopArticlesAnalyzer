@@ -1,11 +1,13 @@
 import argparse
 import datetime as dt
 import time
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import requests
+import pandas as pd
 from pandas import DataFrame, to_datetime, concat, MultiIndex, date_range
 
 API_BASE_URL = "https://wikimedia.org/api/rest_v1/metrics"
@@ -30,6 +32,15 @@ def get_top_wiki_articles(project: str, year: str, month: str, day: str, access:
     return __api__(TOP_ENDPOINT, args)
 
 
+def get_top_wiki_articles_async(project: str, year: str, month: str, day: str) -> Optional[DataFrame]:
+    data = get_top_wiki_articles(project, year, month, day)
+    if data:
+        daily_df = DataFrame(data["items"][0]["articles"])
+        daily_df["date"] = f"{year}-{month}-{day}"
+        return daily_df
+    return DataFrame()
+
+
 def __api__(end_point: str, args: str, api_url: str = API_BASE_URL) -> Optional[dict]:
     url = "/".join([api_url, end_point, args])
     response = requests.get(url, headers={"User-Agent": "wiki parser"})
@@ -43,21 +54,12 @@ def __api__(end_point: str, args: str, api_url: str = API_BASE_URL) -> Optional[
 def process_dates(start: str, end: str) -> DataFrame:
     start_date = dt.datetime.strptime(start, "%Y%m%d")
     end_date = dt.datetime.strptime(end, "%Y%m%d")
-    delta = dt.timedelta(days=1)
-    data_frames = []
+    dates = [(str(d.year), str(d.month).zfill(2), str(d.day).zfill(2))
+             for d in pd.date_range(start_date, end_date)]
 
-    while start_date <= end_date:
-        year = str(start_date.year)
-        month = str(start_date.month).zfill(2)
-        day = str(start_date.day).zfill(2)
-        start_date += delta
-        data = get_top_wiki_articles("en.wikipedia", year, month, day)
-        if data:
-            daily_df = DataFrame(data["items"][0]["articles"])
-            daily_df["date"] = f"{year}{month}{day}"
-            data_frames.append(daily_df)
-
-    return concat(data_frames, ignore_index=True)
+    with ThreadPoolExecutor() as executor:
+        dfs = list(executor.map(lambda d: get_top_wiki_articles_async("en.wikipedia", *d), dates))
+    return concat(dfs, ignore_index=True)
 
 
 @timed
