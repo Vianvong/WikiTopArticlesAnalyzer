@@ -6,8 +6,8 @@ from typing import Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import requests
 import pandas as pd
+import requests
 from pandas import DataFrame, to_datetime, concat, MultiIndex, date_range
 
 API_BASE_URL = "https://wikimedia.org/api/rest_v1/metrics"
@@ -43,11 +43,13 @@ def get_top_wiki_articles_async(project: str, year: str, month: str, day: str) -
 
 def __api__(end_point: str, args: str, api_url: str = API_BASE_URL) -> Optional[dict]:
     url = "/".join([api_url, end_point, args])
-    response = requests.get(url, headers={"User-Agent": "wiki parser"})
-    if response.status_code == 200:
-        return response.json()
-    else:
+    try:
+        response = requests.get(url, headers={"User-Agent": "wiki parser"})
         response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        print(f"Error receiving data from the API: {e}")
+        return None
 
 
 @timed
@@ -96,8 +98,8 @@ def calculate_stats(df: DataFrame) -> Tuple[int, int]:
 def plot_data(df: DataFrame, mean_views: int, max_views: int, unique_articles: int) -> None:
     title = f"Top articles wiki views (Mean: {mean_views:.2f}, Max: {max_views}, Articles: {unique_articles})"
     plt.figure(figsize=(12, 8))
-    for article in df["article"].unique():
-        df_article = df[df["article"] == article]
+
+    for article, df_article in df.groupby("article"):
         plt.plot(df_article["date"], df_article["views"], label=article)
 
     plt.yscale("log")
